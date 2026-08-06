@@ -1,5 +1,5 @@
-"""Prepara el dataset ASL: lee el zip, submuestrea, redimensiona y arma los splits.
-Genera los .npy de data/processed/. Se lee directo del zip para no extraer 87k archivos."""
+"""Prepara el dataset ASL: submuestrea, redimensiona y arma los splits.
+Genera los .npy de data/processed/. Lee de la carpeta extraida en data/raw/ (o del zip si aun existe)."""
 import io
 import zipfile
 import numpy as np
@@ -7,7 +7,8 @@ from pathlib import Path
 from PIL import Image
 
 BASE = Path(__file__).resolve().parent.parent
-ZIP = BASE / "data/raw/asl_alphabet_train.zip"
+DIR = BASE / "data/raw/asl_alphabet_train"      # carpeta extraida
+ZIP = BASE / "data/raw/asl_alphabet_train.zip"  # o el zip original
 OUT = BASE / "data/processed"
 
 TAM = 64        # imagenes a 64x64
@@ -16,25 +17,40 @@ SEED = 0
 
 rng = np.random.default_rng(SEED)
 
-with zipfile.ZipFile(ZIP) as z:
-    # agrupar rutas de imagenes por clase (carpeta)
+
+def cargar_imagen(fuente):
+    """fuente: ruta en disco o (zip, nombre)."""
+    if isinstance(fuente, tuple):
+        z, nombre = fuente
+        data = io.BytesIO(z.read(nombre))
+    else:
+        data = fuente
+    return np.asarray(Image.open(data).convert("RGB").resize((TAM, TAM)), dtype=np.uint8)
+
+
+# agrupar rutas de imagenes por clase (carpeta), desde la carpeta o el zip
+zf = None
+if DIR.is_dir():
+    por_clase = {p.name: [f for f in p.glob("*.jpg")] for p in sorted(DIR.iterdir()) if p.is_dir()}
+elif ZIP.exists():
+    zf = zipfile.ZipFile(ZIP)
     por_clase = {}
-    for info in z.infolist():
+    for info in zf.infolist():
         if info.filename.endswith(".jpg"):
-            clase = info.filename.split("/")[-2]
-            por_clase.setdefault(clase, []).append(info.filename)
+            por_clase.setdefault(info.filename.split("/")[-2], []).append((zf, info.filename))
+else:
+    raise FileNotFoundError(f"No se encontro el dataset en {DIR} ni {ZIP}")
 
-    clases = sorted(por_clase)
-    clase_a_idx = {c: i for i, c in enumerate(clases)}
+clases = sorted(por_clase)
+clase_a_idx = {c: i for i, c in enumerate(clases)}
 
-    X, y = [], []
-    for c in clases:
-        rutas = por_clase[c]
-        elegidas = rng.choice(rutas, size=min(POR_CLASE, len(rutas)), replace=False)
-        for r in elegidas:
-            img = Image.open(io.BytesIO(z.read(r))).convert("RGB").resize((TAM, TAM))
-            X.append(np.asarray(img, dtype=np.uint8))
-            y.append(clase_a_idx[c])
+X, y = [], []
+for c in clases:
+    rutas = por_clase[c]
+    elegidas = rng.choice(len(rutas), size=min(POR_CLASE, len(rutas)), replace=False)
+    for i in elegidas:
+        X.append(cargar_imagen(rutas[i]))
+        y.append(clase_a_idx[c])
 
 X = np.stack(X)
 y = np.array(y, dtype=np.int64)
