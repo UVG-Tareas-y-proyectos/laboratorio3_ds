@@ -1,5 +1,8 @@
 venv/
+.venv/
 data/
+resultados/
 *.ipynb_checkpoints/
 __pycache__/
 Laboratorio - 3. Deep Learning. 2026.md
+tmp/

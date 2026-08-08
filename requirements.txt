@@ -5,3 +5,4 @@ pandas
 pillow
 scikit-learn
 torch
+torchvision
