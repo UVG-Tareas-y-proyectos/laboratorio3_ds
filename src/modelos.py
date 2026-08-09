@@ -329,12 +329,16 @@ def ajustar_random_forest(
     return mejor_modelo, pd.DataFrame(filas).sort_values("val_acc", ascending=False), mejor_cfg
 
 
-def cargar_foto(ruta: Path, tam: int = 64) -> torch.Tensor:
+def cargar_foto_numpy(ruta: Path, tam: int = 64) -> np.ndarray:
     with Image.open(ruta) as imagen:
-        arreglo = np.asarray(
+        return np.asarray(
             imagen.convert("RGB").resize((tam, tam), Image.Resampling.BILINEAR),
             dtype=np.uint8,
         )
+
+
+def cargar_foto(ruta: Path, tam: int = 64) -> torch.Tensor:
+    arreglo = cargar_foto_numpy(ruta, tam)
     return torch.from_numpy(arreglo.copy()).permute(2, 0, 1).float().div(255.0)
 
 
@@ -385,6 +389,44 @@ def evaluar_fotos_propias(
                     "acierto": real.lower() == predicha.lower(),
                 }
             )
+    return pd.DataFrame(resultados)
+
+
+def evaluar_fotos_random_forest(
+    modelo: RandomForestClassifier,
+    clases: np.ndarray,
+    directorio: Path,
+    tam: int = 64,
+) -> pd.DataFrame:
+    """Evalua las fotos externas con el mismo descriptor 16x16 del RF."""
+
+    filas = descubrir_fotos_propias(directorio)
+    if not filas:
+        return pd.DataFrame(
+            columns=["integrante", "archivo", "real", "predicha", "confianza", "acierto"]
+        )
+
+    imagenes = np.stack([cargar_foto_numpy(ruta, tam) for _, _, ruta in filas])
+    caracteristicas = features_clasicas(imagenes)
+    indices = modelo.predict(caracteristicas).astype(int)
+    probabilidades = modelo.predict_proba(caracteristicas)
+    confianzas = probabilidades.max(axis=1)
+
+    resultados = []
+    for (integrante, real, ruta), indice, confianza in zip(
+        filas, indices, confianzas, strict=True
+    ):
+        predicha = str(clases[indice])
+        resultados.append(
+            {
+                "integrante": integrante,
+                "archivo": str(ruta),
+                "real": real,
+                "predicha": predicha,
+                "confianza": float(confianza),
+                "acierto": real.lower() == predicha.lower(),
+            }
+        )
     return pd.DataFrame(resultados)
 
 

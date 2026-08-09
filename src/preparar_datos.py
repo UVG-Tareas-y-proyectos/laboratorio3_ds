@@ -28,6 +28,12 @@ TAM = 64
 POR_CLASE = 500
 SEED = 0
 EXTENSIONES = {".jpg", ".jpeg", ".png"}
+CLASES_ESPERADAS = {
+    *(chr(codigo) for codigo in range(ord("A"), ord("Z") + 1)),
+    "del",
+    "nothing",
+    "space",
+}
 
 
 def _es_imagen(nombre: str | Path) -> bool:
@@ -128,13 +134,21 @@ def preparar(
     rng = np.random.default_rng(seed)
     tipo_fuente, fuente_abierta, por_clase = resolver_fuente(directorio, ruta_zip)
 
-    clases = sorted(por_clase)
-    if len(clases) != 29:
+    clases_encontradas = set(por_clase)
+    faltantes = sorted(CLASES_ESPERADAS - clases_encontradas)
+    if faltantes:
         if tipo_fuente == "zip":
             fuente_abierta.close()
         raise ValueError(
-            f"Se esperaban 29 clases de ASL Alphabet y se encontraron {len(clases)}: {clases}"
+            "No se encontraron todas las clases de entrenamiento de ASL Alphabet. "
+            f"Faltan: {faltantes}"
         )
+
+    # El ZIP oficial tambien contiene ``asl_alphabet_test/asl_alphabet_test``.
+    # Esa carpeta no es una clase y se excluye para evitar fuga de datos.
+    clases_ignoradas = sorted(clases_encontradas - CLASES_ESPERADAS)
+    por_clase = {clase: por_clase[clase] for clase in sorted(CLASES_ESPERADAS)}
+    clases = list(por_clase)
 
     imagenes: list[np.ndarray] = []
     etiquetas: list[int] = []
@@ -181,6 +195,7 @@ def preparar(
         "normalizacion_entrenamiento": "x / 255.0",
         "seed": seed,
         "clases": clases,
+        "clases_ignoradas": clases_ignoradas,
         "conteos_originales": conteos_originales,
         "submuestra_por_clase": {
             clase: int(np.sum(y == i)) for i, clase in enumerate(clases)
