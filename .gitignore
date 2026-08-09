@@ -1,6 +1,8 @@
 venv/
 .venv/
-data/
+data/*
+!data/propias/
+!data/propias/**
 resultados/
 *.ipynb_checkpoints/
 __pycache__/

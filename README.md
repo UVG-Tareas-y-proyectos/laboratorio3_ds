@@ -43,15 +43,33 @@ data/propias/Diego/A/01.jpg
 data/propias/Diego/B/01.jpg
 ```
 
-La última parte del notebook guarda `resultados/mejor_modelo.pt` y evalúa las fotos.
-También puede repetir solamente esa evaluación con:
+La última parte guarda `resultados/mejor_modelo_rf.joblib` (mejor global en
+validación) y `resultados/mejor_modelo.pt` (mejor red neuronal). Puede repetir la
+evaluación del mejor modelo global con:
 
 ```bash
 python src/evaluar_fotos_propias.py
 ```
 
-El script verifica que cada persona tenga por lo menos cinco etiquetas distintas y
+Para comparar la CNN use `python src/evaluar_fotos_propias.py --modelo cnn`. El
+script verifica que cada persona tenga por lo menos cinco etiquetas distintas y
 genera `resultados/fotos_propias.csv`.
+
+## Resultados finales
+
+| Modelo | Val. accuracy | Test accuracy | F1 macro |
+|---|---:|---:|---:|
+| Random Forest | 0.9490 | 0.9320 | 0.9320 |
+| CNN | 0.9218 | 0.9163 | 0.9158 |
+| CNN + augmentation | 0.9025 | 0.8975 | 0.8958 |
+| Red densa | 0.1462 | 0.1389 | 0.0786 |
+| Red densa + augmentation | 0.0625 | 0.0644 | 0.0164 |
+
+En las 24 fotos externas, Random Forest obtuvo 0% y predijo siempre `nothing`.
+La CNN logró 41.67% para Diego y 33.33% para Ihan. La inversión del orden interno
+evidencia cambio de dominio por persona, fondo, distancia, teléfono e iluminación;
+por ello la CNN es la alternativa más razonable para continuar desarrollando,
+aunque todavía no tiene desempeño suficiente para un producto real.
 
 ## Estructura
 
@@ -59,7 +77,9 @@ genera `resultados/fotos_propias.csv`.
 - `src/preparar_datos.py`: lectura robusta, submuestreo, redimensionado y splits.
 - `src/modelos.py`: CNN, red densa, Random Forest, aumentos, métricas y checkpoints.
 - `src/evaluar_fotos_propias.py`: evaluación repetible de imágenes del grupo.
-- `data/`: dataset y arreglos procesados; ignorados por Git.
+- `src/ejecutar_notebook.py`: ejecución completa con estado y copia incremental.
+- `data/raw/` y `data/processed/`: dataset y arreglos generados; ignorados por Git.
+- `data/propias/`: 24 fotografías del grupo, versionadas con autorización de ambos integrantes.
 - `resultados/`: checkpoints y CSV; ignorados por Git.
 
 ## Decisiones metodológicas
